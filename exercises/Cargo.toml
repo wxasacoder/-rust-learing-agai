@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = [
+    "fizzbuzz_and_fib",
+    "calculator_cli",
+    "todo_cli",
+    "oneTofoure"
+]
