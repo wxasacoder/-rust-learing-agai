@@ -428,3 +428,312 @@ let slice: &str = &s[1..4];    // "ell"
 5. **引用的引用是瘦指针**：`&&str` 只有 8 字节，因为 `&str` 本身是 Sized（16 字节），不需要额外元数据
 6. **切片的本质是地址范围**：胖指针的 ptr 是起点，len 是范围，合起来就是一段连续内存的视图，零拷贝
 `─────────────────────────────────────────────────`"
+
+---
+
+## 九、`Self` vs `self`
+
+> 大小写不同，含义完全不同。
+
+### 对比
+
+| 关键字 | 含义 | 层级 | 类比 |
+|---|---|---|---|
+| `Self` | 当前**类型本身**（类型别名） | 编译期类型级别 | Java 的 `this.getClass()` / Go 的 `*Receiver` |
+| `self` | 当前**实例**（实例引用） | 运行时实例级别 | Java 的 `this` / Go 的接收者 `r` |
+
+---
+
+### `self`：实例方法
+
+```rust
+struct Circle { radius: f64 }
+
+impl Circle {
+    fn area(&self) -> f64 {              // &self = 当前实例的引用
+        std::f64::consts::PI * self.radius * self.radius
+    }
+}
+
+let c = Circle { radius: 5.0 };
+c.area();  // self 指向 c
+```
+
+```
+  内存视角：
+  c (栈) ────────→ area(&self)
+  radius: 5.0       self → c 的地址
+                    通过 self.radius 读到 5.0
+```
+
+---
+
+### `Self`：类型别名
+
+```rust
+struct Rectangle { width: u32, height: u32 }
+
+impl Rectangle {
+    fn square(size: u32) -> Self {       // Self = Rectangle
+        Self { width: size, height: size }  // 等价于 Rectangle { ... }
+    }
+}
+```
+
+`Self` 就是 `impl` 后面那个类型名的简写，**不用重复写类型名**，重构友好。
+
+---
+
+### Trait 里的 `Self`
+
+```rust
+trait Default {
+    fn default() -> Self;    // Self = "谁实现了我，我就是谁"
+}
+
+impl Default for String {
+    fn default() -> Self {   // 这里 Self = String
+        String::new()
+    }
+}
+
+impl Default for UserId {
+    fn default() -> Self {   // 这里 Self = UserId
+        UserId(0)
+    }
+}
+```
+
+Trait 定义里 `Self` 是占位符，**不同实现者自动替换成自己的类型**。
+
+---
+
+### 小结
+
+```rust
+impl Rectangle {
+    fn square(size: u32) -> Self {        // ← Self = 类型名，编译期决定
+        Self { width: size, height: size }
+    }
+
+    fn area(&self) -> f64 {               // ← self = 实例地址，运行时传参
+        self.width * self.height
+    }
+}
+```
+
+**`Self` 是"我是什么类型"，`self` 是"我是哪个实例"。**
+
+---
+
+## 十、关联函数 vs 方法（官方术语）
+
+> "实例方法"和"静态方法"是 Java/C++ 的叫法，不是 Rust 官方概念。
+
+### 官方术语
+
+| 官方叫法 | 含义 | 社区俗称 |
+|---|---|---|
+| **关联函数 (associated function)** | `impl` 块里所有函数的统称 | — |
+| **方法 (method)** | 第一个参数是 `self` 的关联函数 | 实例方法 |
+| **无 self 的关联函数** | 第一个参数不是 `self` 的关联函数 | 静态方法 / 类方法 |
+
+```rust
+impl Circle {
+    fn new(radius: f64) -> Self { ... }     // 官方：关联函数（无 self）
+                                          // 社区：静态方法
+    fn area(&self) -> f64 { ... }           // 官方：方法
+                                          // 社区：实例方法
+}
+```
+
+### 来源
+
+Rust Book 第 5.3 节的原文：
+
+> Functions inside an `impl` block are called **associated functions** because they're associated with the type named after the `impl`.
+>
+> We've defined `impl` blocks to contain methods, but **associated functions that don't take `self` as a parameter** are a separate category.
+
+所以官方只分两类：**方法（有 self）** 和 **非 self 的关联函数**。"实例方法"和"静态方法"是社区从其他语言借来的俗称。
+
+### 调用方式
+
+```rust
+// 方法（有 self）：通过实例调用
+let c = Circle::new(5.0);
+c.area();           // c 作为 &self 隐式传入
+
+// 关联函数（无 self）：通过类型名调用
+Circle::new(5.0);   // 不需要实例
+```
+
+```
+  内存视角：
+
+  方法 c.area():
+  ┌─────────┐      ┌──────────────────┐
+  │ c (实例) │ ──→ │ area(&self)      │
+  │ radius:5 │      │ self → c 的地址  │  ← 实例的地址被传进去
+  └─────────┘      └──────────────────┘
+
+  关联函数 Circle::new(5.0):
+  ┌──────────────────┐
+  │ new(radius: 5.0) │  ← 没有 self，不指向任何已有实例
+  │ 直接返回新实例    │
+  └──────────────────┘
+```
+
+---
+
+## 十一、枚举的内存结构
+
+> **枚举 = 判别码 + 共用数据区（union）**，按最大的变体分配空间。
+> `Option<指针类>` 是特例，编译器做了零成本优化。
+
+### 普通枚举：真的有判别码
+
+```rust
+enum Color {
+    Red(u8),
+    Green(u8),
+    Blue(u8),
+}
+
+let c = Color::Blue(1);
+```
+
+```
+  栈上（c，4 字节）
+┌─────────────────────┐
+│ 判别码: 2 (Blue)    │   ← 1 字节，真实存在
+│ 数据: 1             │   ← 1 字节（Blue 的值）
+│ 填充: 2 字节        │   ← 对齐到 4
+└─────────────────────┘
+
+  内存字节（小端序）：
+  02 │ 01 │ 00 │ 00
+  ↑    ↑    └──── 填充
+  判别码  数据值
+
+  02 → 第3个变体（0=Red, 1=Green, 2=Blue）
+```
+
+换一种写法：
+
+```rust
+let r = Color::Red(255);
+```
+
+```
+  内存：
+  00 │ FF │ 00 │ 00
+  ↑    ↑
+  判别码  255
+
+  00 → 第1个变体 Red
+```
+
+---
+
+### 变体大小不同：按最大的分配
+
+```rust
+enum Color {
+    Red(String),    // String = 24 字节
+    Green(u8),      // u8 = 1 字节
+    Blue(u8),       // u8 = 1 字节
+}
+
+let d = Color::Red("read".to_string());
+```
+
+```
+  栈上（d，32 字节）
+┌─────────────────────────────────┐
+│ 判别码: 0 (Red)                 │   ← 1 字节
+├─────────────────────────────────┤
+│ 数据区（String，24 字节）：      │
+│   ptr ────────────────────→ 堆   │   ← 8 字节
+│   len: 4                         │   ← 8 字节
+│   cap: 4                         │   ← 8 字节
+└─────────────────────────────────┘
+          堆
+      ┌─────────────────┐
+      │ r e a d \0       │
+      └─────────────────┘
+```
+
+对比两种变体：
+
+```
+  c = Color::Blue(1)（整个枚举 32 字节）
+┌─────────────────────────────────┐
+│ 判别码: 2 (Blue)                 │
+│ ptr: (无意义) │ len: 1 │ cap: 0  │
+└─────────────────────────────────┘
+
+  d = Color::Red("read")（整个枚举 32 字节）
+┌─────────────────────────────────┐
+│ 判别码: 0 (Red)                  │
+│ ptr ─→堆 │ len: 4 │ cap: 4       │
+└─────────────────────────────────┘
+```
+
+**同一个 `Color` 类型，不管选哪个变体，栈上都是 32 字节。** 数据区是 union，共用同一块内存。
+
+---
+
+### 没有数据的枚举：只有判别码
+
+```rust
+enum Direction { Up, Down, Left, Right }
+let d = Direction::Down;
+```
+
+```
+  内存：
+  01     ← 只有 1 字节判别码，没有数据
+  ↑
+  第2个变体（0=Up, 1=Down, 2=Left, 3=Right）
+```
+
+最小只有 1 字节。
+
+---
+
+### 特例：`Option<T>` 的零成本优化
+
+`Option<T>` 是最常用的枚举，Rust 专门做了优化。
+
+| 类型 | `Option<T>` 大小 | T 大小 | 有判别码？ |
+|---|---|---|---|
+| `String` | 24 | 24 | ❌ 用 ptr=0 表示 None |
+| `&T` | 8 | 8 | ❌ 用 null 表示 None |
+| `Box<T>` | 8 | 8 | ❌ 用 null 表示 None |
+| `Vec<T>` | 24 | 24 | ❌ 用 ptr=0 表示 None |
+| `i32` | 8 | 4 | ✅ 需要判别码 |
+| `bool` | 2 | 1 | ✅ 需要判别码 |
+
+**优化原理**：指针类类型（String、&T、Box、Vec）的 ptr **不可能是 null**，所以 Rust 用 null 表示 None，不需要额外判别码。
+
+```
+  Option<String> 时：                Option<i32> 时：
+  Some("hello")      None            Some(42)        None
+┌────────────────┐ ┌──────────┐    ┌─────────────┐ ┌─────────────┐
+│ ptr: 0x7fff5000│ │ ptr: 0   │    │ 判别码: 1   │ │ 判别码: 0   │
+│ len: 5         │ │ len: 0   │    │ 数据: 42    │ │ (无意义)    │
+│ cap: 5         │ │ cap: 0   │    │ (填充3字节) │ │ (填充7字节) │
+└────────────────┘ └──────────┘    └─────────────┘ └─────────────┘
+     24 字节          24 字节          8 字节         8 字节
+
+  判别码？没有！ptr=0 就是 None     有！i32 所有值都合法，没法优化
+```
+
+### 关键结论
+
+```
+  枚举的通用规则：判别码 + 共用数据区（union），按最大变体分配
+  特殊优化：Option<指针类> 利用"不可能为 null"消除判别码
+  Some/None 不存在于内存中，是编译期的代码分支标签
+```

@@ -27,7 +27,8 @@ fn main(){
 
     let price  = Decimal::new(10,2);
     let total_count =  Decimal::new(23,0);
-    person_two.pay(&UserId::calculate(&price, &total_count))
+    person_two.pay(&UserId::calculate(&price, &total_count));
+    let person_c = UserId::from(1);
 
 }
 
@@ -65,6 +66,12 @@ impl Rectangle {
 }
 
 struct UserId(u32);
+
+impl UserId{
+    fn from(a: u32) -> Self{
+        Self(a)
+    }
+}
 
 impl Display for UserId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
