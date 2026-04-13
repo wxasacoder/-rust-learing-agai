@@ -7,11 +7,11 @@ name = "calculator_cli"
 version = "0.1.0"
 
 [[package]]
-name = "fizzbuzz_and_fib"
+name = "demo"
 version = "0.1.0"
 
 [[package]]
-name = "oneTofour"
+name = "fizzbuzz_and_fib"
 version = "0.1.0"
 
 [[package]]
