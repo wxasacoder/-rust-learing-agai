@@ -11,3 +11,8 @@ edition = "2021"
 [[bin]]
 name = "one_to_four_test"
 path = "src/one_to_four_test.rs"
+
+
+[[bin]]
+name = "struct_test"
+path = "src/struct_test.rs"
