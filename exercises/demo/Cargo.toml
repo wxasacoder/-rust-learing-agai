@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
+rust_decimal = "1.36"
 
 [[bin]]
 name = "one_to_four_test"
@@ -16,3 +16,8 @@ path = "src/one_to_four_test.rs"
 [[bin]]
 name = "struct_test"
 path = "src/struct_test.rs"
+
+
+[[bin]]
+name = "enums_test"
+path = "src/enums_test.rs"
