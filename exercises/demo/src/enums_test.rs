@@ -7,6 +7,7 @@ fn main() {
     let d = Color::Red("read".to_string());
     let e: Option<u32>  = Some(5);
     println!("{}", e.expect("error"));
+    println!("{}", e.unwrap_or(0));
     let f: Option<u32> = None;
     let eu = f.expect("exception----------->");
     println!("{}", eu);
