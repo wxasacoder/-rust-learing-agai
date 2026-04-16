@@ -21,3 +21,15 @@ path = "src/struct_test.rs"
 [[bin]]
 name = "enums_test"
 path = "src/enums_test.rs"
+
+
+[[bin]]
+name = "container"
+path = "src/container.rs"
+
+[[bin]]
+name = "exception_process"
+path = "src/exception_process.rs"
+
+[profile.release]
+panic = 'abort'
