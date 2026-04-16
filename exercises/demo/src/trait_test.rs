@@ -11,7 +11,8 @@ fn test_r_some(){
     breaking_bak_tv.show_tv("1");
     breaking_bak_tv.show_color("蓝绿色");
 
-
+    let b: &dyn TvShow =  &breaking_bak_tv;
+    b.show_product("auxin")
 
 }
 
