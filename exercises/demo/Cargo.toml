@@ -31,5 +31,10 @@ path = "src/container.rs"
 name = "exception_process"
 path = "src/exception_process.rs"
 
+
+[[bin]]
+name = "trait_test"
+path = "src/trait_test.rs"
+
 [profile.release]
 panic = 'abort'
