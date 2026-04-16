@@ -9,7 +9,7 @@ fn test_r_some(){
     test_dyn(&color_show);
     let breaking_bak_tv = BreakingBad::new();
     breaking_bak_tv.show_tv("1");
-    breaking_bak_tv.show_color("蓝绿色")
+    breaking_bak_tv.show_color("蓝绿色");
 
 
 
@@ -45,6 +45,11 @@ pub trait TvShow{
     fn show_tv(&self,s: &str) where Self: Sized;
 }
 
+
+pub trait ProductPrinter{
+    fn show_product( &self, s: &str);
+}
+
 impl <T: TvShow> Display for T {
     fn show_color(&self, c: &str) -> () {
         println!("电视的主题色是{}", c);
@@ -52,6 +57,16 @@ impl <T: TvShow> Display for T {
 
 
 }
+
+
+impl ProductPrinter for dyn TvShow {
+    fn show_product(&self, s: &str)
+    {
+        println!("制作人{}", s);
+    }
+}
+
+
 
 
 impl ColorShow {
